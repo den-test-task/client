@@ -1,0 +1,46 @@
+
+local monarch = require 'monarch.monarch'
+local storage = require 'common.storage'
+local screens = require 'common.screens'
+local colors = require 'common.colors'
+local hashes = require 'common.hashes'
+local utils = require 'common.utils'
+local game_controller = require 'common.game_controller'
+local colyseus_helper = require 'common.colyseus_helper'
+
+local keyboard = require 'common.keyboard'
+
+--local test_minimax = require 'main.test_minimax'
+local init_monarch_msg = hash('init_monarch_msg')
+
+function init(self)
+	msg.post('.', hashes.acquire_input_focus)
+	msg.post('@render:', 'use_fixed_fit_projection', { near = -1, far = 1 })
+	msg.post('@render:', 'clear_color', { color = colors.background } )
+	msg.post('.', init_monarch_msg)
+	math.randomseed(socket.gettime()*1000)
+	storage.initialize()
+	--test_minimax.init()
+end
+
+function on_message(self, message_id, message, sender)
+	if message_id == init_monarch_msg then
+		monarch.show(screens.main_menu)
+		keyboard.create_keyboard()
+	elseif message_id == hash('colyseus_helper') then
+		colyseus_helper.on_message(message, sender)
+	else
+		game_controller.on_message(message_id, message)
+	end
+end
+
+function on_input(self, action_id, action)
+	if action_id == hashes.touch and action.pressed then
+		--test_minimax.inp()
+	elseif action_id == hashes.type then
+		local num = tonumber(action.text)
+		if num then
+			--test_minimax.inp(num)
+		end
+	end
+end

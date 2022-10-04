@@ -1,0 +1,172 @@
+
+local monarch = require 'monarch.monarch'
+local screens = require 'common.screens'
+local hashes = require 'common.hashes'
+
+local game_link = 'https://den-test-task.github.io/'
+local PROP_POS_X = 'position.x'
+local PROP_POS_Y = 'position.y'
+
+local function back(self)
+	monarch.show(screens.main_menu, { clear = true })
+	msg.post('main:/main#main', 'colyseus_helper', { f = 'on_leave_find_room_screen' })
+	msg.post('main:/sound#sounds', 'screen')
+end
+
+local function find_anim(self, p, r, t, callback)
+	gui.animate(self.find, PROP_POS_Y, p.y - r, gui.EASING_INOUTSINE, t*0.25, 0, function()
+		gui.animate(self.find, PROP_POS_Y, p.y - 2*r, gui.EASING_OUTSINE, t*0.25, 0, function()
+			gui.animate(self.find, PROP_POS_Y, p.y - r, gui.EASING_INOUTSINE, t*0.25, 0, function()
+				gui.animate(self.find, PROP_POS_Y, p.y, gui.EASING_OUTSINE, t*0.25, 0, callback, gui.PLAYBACK_ONCE_FORWARD)
+			end, gui.PLAYBACK_ONCE_FORWARD)
+		end, gui.PLAYBACK_ONCE_FORWARD)
+	end, gui.PLAYBACK_ONCE_FORWARD)
+	gui.animate(self.find, PROP_POS_X, p.x - r, gui.EASING_OUTSINE, t*0.25, 0, function()
+		gui.animate(self.find, PROP_POS_X, p.x, gui.EASING_INOUTSINE, t*0.25, 0, function()
+			gui.animate(self.find, PROP_POS_X, p.x + r, gui.EASING_OUTSINE, t*0.25, 0, function()
+				gui.animate(self.find, PROP_POS_X, p.x, gui.EASING_INOUTSINE, t*0.25, 0, nil, gui.PLAYBACK_ONCE_FORWARD)
+			end, gui.PLAYBACK_ONCE_FORWARD)
+		end, gui.PLAYBACK_ONCE_FORWARD)
+	end, gui.PLAYBACK_ONCE_FORWARD)
+end
+
+local function find_ui(self, enabled)
+	self.find_ui = self.find_ui or gui.get_node('find_ui')
+	self.find_ui_text = self.find_ui_text or gui.get_node('find_ui_text')
+	self.find = self.find or gui.get_node('find')
+	gui.set_enabled(self.find_ui, enabled)
+	gui.set_enabled(self.find, enabled)
+	local closure_f = nil
+	if enabled then
+		gui.set_text(self.find_ui_text, 'Finding a random player ...')
+		local p = gui.get_position(self.find)
+		closure_f = function()
+			find_anim(self, p, 30, 1.8, closure_f)
+		end
+		closure_f()
+	else
+		gui.cancel_animation(self.find, PROP_POS_X)
+		gui.cancel_animation(self.find, PROP_POS_Y)
+		closure_f = nil
+	end
+end
+
+local function private_ui(self, enabled)
+	self.private_ui = self.private_ui or gui.get_node('private_ui')
+	self.create = self.create or gui.get_node('create_button')
+	self.create_root = self.create_root or gui.get_node('create_root')
+	self.join = self.join or gui.get_node('join_by_id_button')
+	self.join_root = self.join_root or gui.get_node('join_by_id_root')
+	self.private_key = self.private_key or ''
+	self.private_id = self.private_id or gui.get_node('private_id_button')
+	gui.set_enabled(self.private_ui, enabled)
+end
+
+local function private_room(self, enabled)
+	self.private_room = self.private_room or gui.get_node('private_room')
+	self.private_room_id = self.private_room_id or gui.get_node('private_room_id')
+	self.private_room_back = self.private_room_back or gui.get_node('private_room_back')
+	gui.set_enabled(self.private_room, enabled)
+end
+
+local function create(self)
+	private_ui(self, false)
+	find_ui(self, true)
+	gui.set_text(self.find_ui_text, 'Create private room..')
+	msg.post('main:/main#main', 'colyseus_helper', { f = 'create_private_room' })
+end
+
+local function join(self)
+	private_ui(self, false)
+	find_ui(self, true)
+	gui.set_text(self.find_ui_text, 'Connect to friends private room..')
+	if self.private_key and utf8.len(self.private_key) > 0 then
+		msg.post('main:/main#main', 'colyseus_helper', { f = 'join_private_room', data = self.private_key })
+	end
+end
+
+local function refresh_private_id(self)
+	self.private_id_button_text = self.private_id_button_text or gui.get_node('private_id_button_text')
+	gui.set_text(self.private_id_button_text, self.private_key)
+end
+
+local function refresh_text_mode(self)
+	self.private_id_root = self.private_id_root or gui.get_node('private_id_root')
+	gui.set_scale(self.private_id_root, self.text_mode and vmath.vector3(1.2) or vmath.vector3(1))
+end
+
+local function button_anim(self, node, action)
+	if self.button then return end
+	self.button = node
+	gui.animate(node, gui.PROP_SCALE, 0.9, gui.EASING_LINEAR, 0.2, 0, function()
+		if action then
+			action(self)
+		end
+		self.button = nil
+	end, gui.PLAYBACK_ONCE_PINGPONG)
+end
+
+function init(self)
+	gui.set_render_order(4)
+	self.data = monarch.data(screens.find_room) or {}
+	private_room(self, false)
+	if self.data.private then
+		private_ui(self, true)
+		find_ui(self, false)
+	elseif self.data.random then
+		private_ui(self, false)
+		find_ui(self, true)
+		msg.post('main:/main#main', 'colyseus_helper', { f = 'join_or_create_public_room' })
+	end
+	msg.post('.', 'acquire_input_focus')
+end
+
+function on_input(self, action_id, action)
+	if action_id == hashes.touch and action.released then
+		if gui.is_enabled(self.private_ui) then
+			local current_mode = self.text_mode
+			self.text_mode = false
+			if gui.pick_node(self.create, action.x, action.y) then
+				button_anim(self, self.create_root, create)
+			elseif gui.pick_node(self.join, action.x, action.y) then
+				button_anim(self, self.join_root, join)
+			elseif gui.pick_node(self.private_id, action.x, action.y) then
+				self.text_mode = not current_mode
+			end
+			refresh_text_mode(self)
+		elseif gui.is_enabled(self.find_ui) then
+			back(self)
+		elseif gui.is_enabled(self.private_room) then
+			if gui.pick_node(self.private_room_back, action.x, action.y) then
+				back(self)
+			end
+		end
+	elseif self.text_mode then
+		if action_id == hashes.type then
+			self.private_key = self.private_key .. action.text
+			refresh_private_id(self)
+		elseif action_id == hashes.backspace and action.repeated then
+			self.private_key = utf8.sub(self.private_key, 0, math.max(utf8.len(self.private_key) - 1, 0))
+			refresh_private_id(self)
+		end
+	end
+end
+
+function on_message(self, message_id, message)
+	if message_id == hash('create_private_room') then
+		if message.room_id then
+			find_ui(self, false)
+			private_room(self, true)
+			gui.set_text(self.private_room_id, message.room_id)
+		else
+			gui.set_enabled(self.find, false)
+			gui.set_text(self.find_ui_text, 'Smth wrong : room not created -> back to menu')
+		end
+	elseif message_id == hash('join_private_room') then
+		if not message.success then
+			gui.set_enabled(self.find, false)
+			gui.set_text(self.find_ui_text, 'Smth wrong : can\'t connect -> back to menu')
+		end
+	end
+end
+

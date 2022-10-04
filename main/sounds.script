@@ -1,0 +1,45 @@
+
+local sound_component = '#sound'
+local sound_str = 'sound'
+local sound_not_found = 'Care of unregistered sound: %s[seed:%s] - make random'
+
+local hashes = {
+	[hash('button')] = 56412,
+	[hash('move')] = 30744,
+	[hash('screen')] = 1233,
+	[hash('move_o')] = 36665,
+	[hash('move_x')] = 67066,
+	[hash('gameover')] = 79041,
+}
+
+local function check_sound(self, id)
+	--local sound_seed = hashes[id]
+	--if not sound_seed then
+	--	hashes[id] = math.random(99999)
+	--	print(sound_not_found:format(id, hashes[id]))
+	--	sound_seed = hashes[id]
+	--end
+	--if not self.sounds[id] then
+	--	self.sounds[id] = blip.pickup(sound_seed)
+	--end
+	return self.sounds[id]
+end
+
+local function try_play_sound(sound_id)
+	resource.set_sound(go.get(sound_component, sound_str), sound_id)
+	timer.delay(0, false, function()
+		sound.stop(sound_component)
+		sound.play(sound_component)
+	end)
+end
+
+function init(self)
+	self.sounds = {}
+	for k, v in pairs(hashes) do
+		self.sounds[k] = blip.pickup(v)
+	end
+end
+
+function on_message(self, message_id, message, sender)
+	try_play_sound(check_sound(self, message_id))
+end

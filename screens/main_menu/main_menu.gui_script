@@ -1,0 +1,167 @@
+
+local profile = require 'common.profile'
+local hashes = require 'common.hashes'
+local keyboard = require 'common.keyboard'
+
+local select_scale = vmath.vector3(0.92)
+local default_scale = vmath.vector3(1)
+
+local function refresh_name(self)
+	self.name_node = self.name_node or gui.get_node('nickname_button_text')
+	gui.set_text(self.name_node, profile.get_name())
+end
+
+local function anim_select(node, to_scale, callback)
+	gui.animate(node, gui.PROP_SCALE, to_scale, gui.EASING_LINEAR, 0.15, 0, callback)
+end
+
+local function init_touch_nodes(self)
+	self.selected_button = nil
+	self.buttons = {
+		{
+			touch = gui.get_node('nickname_button'),
+			root = gui.get_node('nickname_root'),
+			icon = gui.get_node('nickname_button_icon'),
+			select_scale = vmath.vector3(1.15),
+			selected_action = function(self, action_id, action)
+				if action_id == hash('new_text') then
+					profile.reset_name(action.text)
+					refresh_name(self)
+				end
+				if action_id == hashes.type or action_id == hashes.backspace and action.repeated then
+					profile.refresh_name(action.text)
+					refresh_name(self)
+				end
+				if not self.keyboard_shown then
+					keyboard.set_value(profile.get_name())
+					keyboard.show_keyboard()
+					if sys.get_sys_info().system_name == 'Android' then
+						gui.show_keyboard(gui.KEYBOARD_TYPE_DEFAULT, false)
+					end
+					self.keyboard_shown = true
+				end
+			end,
+		},
+
+		{
+			touch = gui.get_node('random_button'),
+			root = gui.get_node('random_root'),
+			icon = gui.get_node('random_button_icon'),
+			action = function()
+				msg.post('main:/sound#sounds', 'button')
+				msg.post('main:/main#main', 'show_game_screen', {mode = 'VS_PLAYER'})
+			end,
+		},
+
+		{
+			touch = gui.get_node('robot_button'),
+			root = gui.get_node('robot_root'),
+			icon = gui.get_node('robot_button_icon'),
+			action = function()
+				msg.post('main:/main#main', 'show_game_screen', {mode = 'VS_ROBOT'})
+				msg.post('main:/sound#sounds', 'button')
+			end,
+		},
+
+		{
+			touch = gui.get_node('pvp_pc_button'),
+			root = gui.get_node('pvp_pc_root'),
+			icon = gui.get_node('pvp_pc_button_icon'),
+			action = function()
+				msg.post('main:/main#main', 'show_game_screen', {mode = 'VS_FRIEND'})
+				msg.post('main:/sound#sounds', 'button')
+			end,
+		},
+
+		{
+			touch = gui.get_node('private_game_button'),
+			root = gui.get_node('private_game_root'),
+			icon = gui.get_node('private_game_button_icon'),
+			action = function()
+				msg.post('main:/main#main', 'show_game_screen', {mode = 'PRIVATE_GAME'})
+				msg.post('main:/sound#sounds', 'button')
+			end,
+		},
+	}
+end
+
+local function selection(self, button)
+	self.selected = button
+	anim_select(button.root, button.select_scale or select_scale, function()
+		if not button.selected_action then
+			anim_select(button.root, button.def_scale or default_scale, function()
+				if button.action then
+					button.action()
+				end
+			end)
+			self.selected = nil
+		end
+	end)
+end
+
+local function set_select(self, button, action)
+	if self.selected then
+		local selected = self.selected
+		self.selected = nil
+		anim_select(selected.root, button and button.def_scale or default_scale, button and function()
+			if self.keyboard_shown then
+				keyboard.hide_keyboard()
+				gui.hide_keyboard()
+				--profile.reset_name(profile.get_name())
+				profile.reset_name(profile.get_name())
+				refresh_name(self)
+				self.keyboard_shown = nil
+			end
+			if selected ~= button then
+				selection(self, button)
+			end
+		end)
+	elseif button then
+		selection(self, button)
+	end
+end
+
+function init(self)
+	gui.set_render_order(2)
+	msg.post('.', hashes.acquire_input_focus)
+	init_touch_nodes(self)
+	refresh_name(self)
+end
+
+function on_input(self, action_id, action)
+	if action_id == hashes.touch then
+		if action.pressed then
+			for _, button_info in ipairs(self.buttons) do
+				if gui.pick_node(button_info.touch, action.x, action.y) then
+					set_select(self, button_info)
+					return true
+				end
+			end
+			set_select(self)
+		end
+	elseif self.selected and self.selected.selected_action then
+		self.selected.selected_action(self, action_id, action)
+	else
+		for _, button_info in ipairs(self.buttons) do
+			if gui.pick_node(button_info.touch, action.x, action.y) then
+				if not self.on_bound then
+					self.on_bound = button_info.touch
+					gui.animate(self.on_bound, gui.PROP_SCALE, vmath.vector4(0.96), gui.EASING_INELASTIC, 0.3, 0, nil, gui.PLAYBACK_ONCE_PINGPONG)
+				end
+				return true
+			end
+		end
+		self.on_bound = nil
+	end
+end
+
+function on_message(self, message_id, message, sender)
+	if message_id == keyboard.KEYBOARD_INPUT then
+		if self.selected and self.selected.selected_action then
+			self.selected.selected_action(self, hash('new_text'), message)
+		end
+	end
+end
+
+
+

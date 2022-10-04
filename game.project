@@ -1,0 +1,57 @@
+[project]
+title = tictactoe_client
+dependencies#0 = https://github.com/britzl/monarch/archive/refs/tags/3.7.0.zip
+dependencies#1 = https://github.com/d954mas/defold-utf8/archive/refs/heads/master.zip
+dependencies#2 = https://github.com/DanEngelbrecht/LuaScriptInstance/archive/refs/tags/0.1.1.zip
+dependencies#3 = https://github.com/subsoap/defsave/archive/refs/tags/v1.2.4.zip
+dependencies#4 = https://github.com/britzl/blip/archive/refs/tags/1.2.0.zip
+dependencies#5 = https://github.com/colyseus/colyseus-defold/archive/refs/tags/0.14.1.zip
+dependencies#6 = https://github.com/defold/extension-websocket/archive/refs/tags/3.1.0.zip
+
+[bootstrap]
+main_collection = /main/main.collectionc
+
+[input]
+game_binding = /game.input_bindingc
+use_accelerometer = 0
+
+[display]
+width = 600
+height = 1067
+
+[ios]
+app_icon_120x120 = /assets/app_icons/icon_120.png
+app_icon_180x180 = /assets/app_icons/icon_180.png
+app_icon_76x76 = /assets/app_icons/icon_76.png
+app_icon_152x152 = /assets/app_icons/icon_152.png
+app_icon_57x57 = /assets/app_icons/icon_57.png
+app_icon_114x114 = /assets/app_icons/icon_114.png
+app_icon_72x72 = /assets/app_icons/icon_72.png
+app_icon_144x144 = /assets/app_icons/icon_144.png
+app_icon_167x167 = /assets/app_icons/icon_167.png
+bundle_identifier = com.example.todo
+icons_asset = /assets/Assets.car
+
+[osx]
+bundle_identifier = com.example.todo
+
+[android]
+input_method = HiddenInputField
+package = com.testtask.tictactoe
+
+[script]
+shared_state = 1
+
+[physics]
+gravity_y = -1000.0
+scale = 0.01
+
+[html5]
+cssfile = /builtins/manifests/web/dark_theme.css
+
+[graphics]
+texture_profiles = /game.texture_profiles
+
+[native_extension]
+app_manifest = /game.appmanifest
+
